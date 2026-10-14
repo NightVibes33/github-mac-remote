@@ -240,7 +240,8 @@ CREDENTIALS
           cat >> credentials/connection-info.txt << EOF
 
   Tailscale IP:  ${TAILSCALE_IP}
-  VNC Port:      5900\n  SSH Port:      22
+  VNC Port:      5900
+  SSH Port:      22
   Username:      ${VNC_USER}
   Password:      ${VNC_PASSWORD}
 
@@ -255,7 +256,8 @@ CREDENTIALS
      - Linux: Use Remmina or vncviewer
        ${TAILSCALE_IP}:5900
 
-  SSH (same Tailscale network): ssh ${VNC_USER}@${TAILSCALE_IP}\n  Login with Username and Password above
+  SSH (same Tailscale network): ssh ${VNC_USER}@${TAILSCALE_IP}
+  Login with Username and Password above
 
 ╚══════════════════════════════════════════════════════╝
 EOF
