@@ -1,3 +1,3 @@
-Launch: 2026-10-14 second attempt.
-Goal: obtain actual iOS 27 Simulator screenshot on GitHub-hosted xcode-27 runner.
-Mode: image proof without unset credentials; RustDesk and state persistence remain opt-in through repository secrets.
+Launch: 2026-10-14 third attempt.
+Fix: resolve Simulator.app using explicit Xcode 27 Developer/Applications path, verify simctl screenshot.
+RustDesk and encrypted backup remain disabled if repo secrets are absent.
