@@ -42,7 +42,7 @@ async function save(){
   exec("tar","-czf",tar,"-C",payload,".");
   await encrypt(tar,enc);
   const label=namePrefix+process.env.GITHUB_RUN_ID+"-"+Date.now();
-  const result=await new DefaultArtifactClient().uploadArtifact(label,[enc],dir,{retentionDays:30,compressionLevel:0});
+  const result=await new DefaultArtifactClient().uploadArtifact(label,[enc],{retentionDays:30,compressionLevel:0});
   console.log("Encrypted simulator state uploaded:",label,"artifact",result.id);
  }finally{fs.rmSync(dir,{recursive:true,force:true});}
 }
