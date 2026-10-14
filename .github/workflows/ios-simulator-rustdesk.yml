@@ -52,22 +52,34 @@ jobs:
           node --check scripts/ios-sim/state-store.cjs
 
       - name: Check secrets and runtime
+        id: config
         shell: bash
         env:
           RUSTDESK_PASSWORD: ${{ secrets.RUSTDESK_PASSWORD }}
           SIMULATOR_STATE_PASSPHRASE: ${{ secrets.SIMULATOR_STATE_PASSPHRASE }}
         run: |
           set -euo pipefail
-          test -n "$RUSTDESK_PASSWORD" || { echo "::error::Set the RUSTDESK_PASSWORD repository secret"; exit 1; }
-          test -n "$SIMULATOR_STATE_PASSPHRASE" || { echo "::error::Set the SIMULATOR_STATE_PASSPHRASE repository secret"; exit 1; }
-          echo "::add-mask::$RUSTDESK_PASSWORD"
-          echo "::add-mask::$SIMULATOR_STATE_PASSPHRASE"
+          if test -n "$RUSTDESK_PASSWORD"; then
+            echo "::add-mask::$RUSTDESK_PASSWORD"
+            echo "rustdesk=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::RUSTDESK_PASSWORD is missing: boot and screenshot proof only; RustDesk disabled"
+            echo "rustdesk=false" >> "$GITHUB_OUTPUT"
+          fi
+          if test -n "$SIMULATOR_STATE_PASSPHRASE"; then
+            echo "::add-mask::$SIMULATOR_STATE_PASSPHRASE"
+            echo "state=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::SIMULATOR_STATE_PASSPHRASE is missing: encrypted state persistence disabled"
+            echo "state=false" >> "$GITHUB_OUTPUT"
+          fi
           sw_vers
           xcodebuild -version
           xcrun simctl list runtimes
           node --version
 
       - name: Install snapshot artifact client
+        if: steps.config.outputs.state == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -84,7 +96,7 @@ jobs:
           echo "ready=true" >> "$GITHUB_OUTPUT"
 
       - name: Restore previous encrypted state
-        if: github.event_name == 'push' || inputs.restore_state
+        if: steps.config.outputs.state == 'true' && (github.event_name == 'push' || inputs.restore_state)
         shell: bash
         env:
           SIMULATOR_STATE_PASSPHRASE: ${{ secrets.SIMULATOR_STATE_PASSPHRASE }}
@@ -107,7 +119,17 @@ jobs:
           bash scripts/ios-sim/boot.sh
           echo "ready=true" >> "$GITHUB_OUTPUT"
 
+      - name: Upload boot screenshot immediately
+        if: steps.booted.outputs.ready == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-simulator-boot-proof-${{ github.run_id }}
+          path: ${{ runner.temp }}/ios-simulator-last.png
+          retention-days: 7
+          if-no-files-found: error
+
       - name: Set up RustDesk
+        if: steps.config.outputs.rustdesk == 'true'
         shell: bash
         env:
           RUSTDESK_PASSWORD: ${{ secrets.RUSTDESK_PASSWORD }}
@@ -132,13 +154,14 @@ jobs:
           fi
 
       - name: Remote session with automatic snapshots
+        if: steps.config.outputs.rustdesk == 'true' && steps.config.outputs.state == 'true'
         shell: bash
         env:
           SIMULATOR_STATE_PASSPHRASE: ${{ secrets.SIMULATOR_STATE_PASSPHRASE }}
         run: bash scripts/ios-sim/session.sh
 
       - name: Final encrypted checkpoint
-        if: always() && steps.booted.outputs.ready == 'true'
+        if: always() && steps.booted.outputs.ready == 'true' && steps.config.outputs.state == 'true'
         shell: bash
         env:
           SIMULATOR_STATE_PASSPHRASE: ${{ secrets.SIMULATOR_STATE_PASSPHRASE }}
