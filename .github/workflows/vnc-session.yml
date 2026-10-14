@@ -44,7 +44,7 @@ env:
 jobs:
   mac-vnc-session:
     name: 'macOS VNC via Tailscale'
-    environment: ${{ vars.VNC_ENVIRONMENT || 'production' }}
+    environment: TAILSCALE_AUTH_KEY
     runs-on: ${{ (github.event.inputs.runner_size || 'standard') == 'xlarge' && format('macos-{0}-xlarge', (github.event.inputs.macos_version || '15')) || (github.event.inputs.runner_size || 'standard') == 'large' && format('macos-{0}-large', (github.event.inputs.macos_version || '15')) || (github.event.inputs.runner_size || 'standard') == 'intel' && (github.event.inputs.macos_version || '15') == '26' && 'macos-26-intel' || format('macos-{0}', (github.event.inputs.macos_version || '15')) }}
     timeout-minutes: 370
 
