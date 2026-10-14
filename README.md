@@ -472,3 +472,52 @@ MIT License - Use freely, but at your own risk.
   <b>Made with ❤️ for the community</b><br>
   <sub>⭐ Star if this project helped you!</sub>
 </p>
+
+---
+
+## 📱 iOS 27 Remote Simulator: RustDesk + encrypted state
+
+**Workflow:** [iOS 27 Simulator — RustDesk + State](.github/workflows/ios-simulator-rustdesk.yml).
+
+This separate workflow provisions the `xcode-27` GitHub-hosted macOS runner, boots an **iOS 27 Simulator** and opens it through RustDesk. It also attempts optional **simject** tweak injection. This is **not a physical-device jailbreak**: no kernel exploit, rootless bootstrap, Cydia/Sileo guarantee or device jailbreak privileges are supplied. Simject on iOS 27 and remote-control TCC permissions on hosted macOS are experimental, not yet confirmed working.
+
+### Required repository secrets
+
+Create both under **Settings → Secrets and variables → Actions**:
+
+- `RUSTDESK_PASSWORD`: strong password used for RustDesk unattended access. Do **not** include this password in repo files or comments.
+- `SIMULATOR_STATE_PASSPHRASE`: **different**, random passphrase (at least 16 characters) for encrypting your simulator state. Save a personal copy. Changing or losing it makes previous snapshots unreadable.
+
+Prefer a **private repository**. Your fork is currently public, and screenshots/diagnostics are not encrypted. This new workflow never uploads a credential artifact; existing older workflows may upload plaintext remote credentials and are unsafe to use in a public fork.
+
+### Start and connect
+
+1. Open **Actions → iOS 27 Simulator — RustDesk + State → Run workflow**.
+2. Select the session duration (1–6 hours), whether to restore the last snapshot, and whether to attempt experimental simject setup.
+3. Wait for the **Boot simulator and test screenshot** and **Set up RustDesk** steps to succeed.
+4. The workflow's **Summary** provides a RustDesk ID (not the password). Connect with the RustDesk app from iPhone, PC or another Mac using that ID and your saved `RUSTDESK_PASSWORD` secret.
+5. The remote Mac should display the iPhone Simulator. If input or capture is blocked, the diagnostic artifact and logs may help diagnose macOS Privacy & Security/TCC limitations.
+
+### Persistent checkpoints
+
+- The workflow periodically **shuts down the Simulator**, compresses its `data` directory plus `~/.remote-ios-simulator/tweaks`, encrypts the archive with **AES-256-GCM** using scrypt key derivation, uploads a uniquely named GitHub Actions artifact, and reboots the Simulator. Expect short interaction interruptions.
+- Snapshots are approximately 30 minutes apart for shorter runs and adjust upward (roughly 40 minutes for the longest sessions) to stay within GitHub Actions' 10-artifacts-per-job limit. A final encrypted snapshot is attempted on normal completion.
+- Next time, the workflow downloads the newest available `ios-sim-state-v1-...` artifact, validates its authentication tag and runtime/device-type metadata, restores the data **before boot**, then launches the Simulator. If the latest artifact is corrupt, it attempts an older compatible one. If no snapshot exists, it starts clean.
+- Requested artifact retention is 30 days, subject to repository retention settings, capacity and deletion. A canceled or timed-out job can lose changes since the last successfully uploaded checkpoint. **RAM/live processes, system runtime overlays and macOS desktop state are not saved.**
+- Restoring depends on a compatible iOS 27 runtime and iPhone device type. Simulator keychain entries, system permissions and registration of installed apps may still behave differently on a fresh host. Nothing can guarantee perfect persistence on ephemeral GitHub runners.
+
+### Experimental tweak installation
+
+simject can inject **simulator-compatible** Theos/Logos dylibs if its runtime hooks successfully install. These may require developer signing and privileged runtime modifications unavailable on hosted macOS, particularly for iOS 27. The workflow marks failures as warnings and boots the stock simulator instead; it will not falsely report jailbroken status.
+
+Transfer a compiled tweak's `.dylib` and filter `.plist` to the remote Mac and run:
+
+```bash
+bash scripts/ios-sim/install-tweak.sh /path/MyTweak.dylib /path/MyTweak.plist
+```
+
+Both files are copied to the checkpointed tweak directory so they can be reinstated next run (if simject is available). `simulator-trainer` isn't automatically installed because its privileged GUI helper requires approvals which may not be possible on hosted GitHub VMs.
+
+### Runner limits
+
+GitHub-hosted jobs cannot run indefinitely. The workflow caps a nominal 6-hour session at **315 minutes of interaction** to leave time for setup and final archiving; the job as a whole has a 355-minute timeout. Runner startup and artifact uploads take additional time and may prevent a last-minute save. Actions minutes and storage quotas apply. For continuous operation and true always-on persistent disk use a self-hosted Mac.

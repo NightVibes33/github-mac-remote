@@ -125,7 +125,8 @@ cat > "${RUSTDESK_CONFIG_DIR}/RustDesk.toml" << EOFTOML
 password = '${RUSTDESK_PASSWORD}'
 EOFTOML
 
-echo "   ✅ Pre-configured password in config files"
+chmod 600 "${RUSTDESK_CONFIG_DIR}/RustDesk.toml" "${RUSTDESK_CONFIG_DIR}/RustDesk2.toml"
+echo "   ✅ Pre-configured password in protected config files"
 echo "   📁 Config location: ${RUSTDESK_CONFIG_DIR}"
 
 # Grant necessary permissions via TCC database (may require SIP disabled)
@@ -180,7 +181,7 @@ if [ -f "${RUSTDESK_CLI}" ]; then
     
     # Method 1: Try direct password setting
     PASSWORD_OUTPUT=$(sudo "${RUSTDESK_CLI}" --password "${RUSTDESK_PASSWORD}" 2>&1)
-    echo "   Password command output: ${PASSWORD_OUTPUT}"
+    echo "   Password command completed (output hidden)"
     
     # Check if it actually worked by looking at the output
     if echo "${PASSWORD_OUTPUT}" | grep -qi "error\|fail\|denied\|not found"; then
@@ -204,7 +205,7 @@ if [ -f "${RUSTDESK_CLI}" ]; then
     # Show the config file contents (not using find as it may hang in subshell)
     echo ""
     echo "   📄 RustDesk.toml:"
-    cat "${RUSTDESK_CONFIG_DIR}/RustDesk.toml" 2>/dev/null || echo "   (not found)"
+    echo "   (credentials redacted)"
     echo ""
     echo "   📄 RustDesk2.toml:"
     cat "${RUSTDESK_CONFIG_DIR}/RustDesk2.toml" 2>/dev/null || echo "   (not found)"
@@ -236,7 +237,7 @@ if pgrep -f "RustDesk" > /dev/null; then
     else
         echo "   🆔 RustDesk ID: (check the RustDesk window or logs)"
     fi
-    echo "   🔐 Password: ${RUSTDESK_PASSWORD}"
+    echo "   🔐 Password: (set, not printed)"
     echo ""
     echo "📖 How to Connect:"
     echo ""
@@ -247,7 +248,7 @@ if pgrep -f "RustDesk" > /dev/null; then
     else
         echo "   3. Enter the ID shown in the RustDesk window"
     fi
-    echo "   4. Enter password: ${RUSTDESK_PASSWORD}"
+    echo "   4. Enter the saved RustDesk password"
     echo "   5. Click Connect!"
     echo ""
     echo "⚠️ Note: If screen/input access is denied, the VM may have"
@@ -287,10 +288,10 @@ echo ""
 echo "📁 Config directory contents:"
 ls -la "${RUSTDESK_CONFIG_DIR}/" 2>/dev/null || echo "   (directory is empty or inaccessible)"
 
-# Show config file contents for debugging (password is visible in workflow logs anyway)
+# Do not expose credential-bearing files in workflow logs.
 echo ""
 echo "📄 RustDesk.toml contents:"
-cat "${RUSTDESK_CONFIG_DIR}/RustDesk.toml" 2>/dev/null || echo "   (file not found)"
+echo "   (credentials redacted)"
 
 echo ""
 echo "📄 RustDesk2.toml contents:"
