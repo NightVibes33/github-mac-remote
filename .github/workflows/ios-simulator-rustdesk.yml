@@ -131,6 +131,7 @@ jobs:
           if-no-files-found: error
 
       - name: Join Tailscale network for iPhone Simulator
+        continue-on-error: true
         shell: bash
         env:
           TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
@@ -173,6 +174,37 @@ jobs:
           name: ios27-vnc-credentials-${{ github.run_id }}
           path: ${{ runner.temp }}/ios27-connection/connection.txt
           retention-days: 1
+
+      - name: Publish temporary Cloudflare browser VNC
+        if: steps.booted.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          brew install cloudflared
+          git clone --depth 1 https://github.com/novnc/noVNC.git "$RUNNER_TEMP/novnc"
+          git clone --depth 1 https://github.com/novnc/websockify.git "$RUNNER_TEMP/websockify"
+          python3 "$RUNNER_TEMP/websockify/run" --web "$RUNNER_TEMP/novnc" 127.0.0.1:6080 127.0.0.1:5900 > "$RUNNER_TEMP/websockify.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/websockify.pid"
+          sleep 3
+          curl -fsS http://127.0.0.1:6080/vnc.html -o /dev/null
+          cloudflared tunnel --no-autoupdate --url http://127.0.0.1:6080 > "$RUNNER_TEMP/cloudflared.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/cloudflared.pid"
+          URL=""
+          for i in {1..40}; do
+            URL=$(grep -Eo 'https://[a-zA-Z0-9-]+[.]trycloudflare[.]com' "$RUNNER_TEMP/cloudflared.log" | head -1 || true)
+            test -n "$URL" && break
+            sleep 3
+          done
+          if [ -z "$URL" ]; then
+            cat "$RUNNER_TEMP/cloudflared.log"
+            echo "::error::Cloudflare tunnel did not return a URL"
+            exit 1
+          fi
+          echo "### Temporary browser VNC (iPhone Safari)" >> "$GITHUB_STEP_SUMMARY"
+          echo "URL: $URL/vnc.html" >> "$GITHUB_STEP_SUMMARY"
+          echo "This temporary URL stops working when the runner exits (maximum six hours)." >> "$GITHUB_STEP_SUMMARY"
+          echo "VNC password is in the ios27-vnc-credentials artifact." >> "$GITHUB_STEP_SUMMARY"
+          echo "Cloudflare URL: $URL/vnc.html"
 
       - name: Set up RustDesk
         if: steps.config.outputs.rustdesk == 'true'
