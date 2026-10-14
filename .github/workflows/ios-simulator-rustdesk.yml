@@ -1,7 +1,11 @@
 name: "iOS 27 Simulator — RustDesk + State"
-run-name: "Remote iPhone Simulator (${{ inputs.duration }}h)"
+run-name: "Remote iPhone Simulator"
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/ios-sim/launch.txt"
   workflow_dispatch:
     inputs:
       duration:
@@ -80,7 +84,7 @@ jobs:
           echo "ready=true" >> "$GITHUB_OUTPUT"
 
       - name: Restore previous encrypted state
-        if: inputs.restore_state
+        if: github.event_name == 'push' || inputs.restore_state
         shell: bash
         env:
           SIMULATOR_STATE_PASSPHRASE: ${{ secrets.SIMULATOR_STATE_PASSPHRASE }}
@@ -88,7 +92,7 @@ jobs:
         run: node scripts/ios-sim/state-store.cjs restore
 
       - name: Install experimental tweak framework
-        if: inputs.enable_simject
+        if: github.event_name == 'push' || inputs.enable_simject
         shell: bash
         run: |
           bash scripts/ios-sim/setup-simject.sh || {
