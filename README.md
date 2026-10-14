@@ -486,7 +486,7 @@ This separate workflow provisions the `xcode-27` GitHub-hosted macOS runner, boo
 Create both under **Settings → Secrets and variables → Actions**:
 
 - `RUSTDESK_PASSWORD`: strong password used for RustDesk unattended access. Do **not** include this password in repo files or comments.
-- `SIMULATOR_STATE_PASSPHRASE`: **different**, random passphrase (at least 16 characters) for encrypting your simulator state. Save a personal copy. Changing or losing it makes previous snapshots unreadable.
+- `SIMULATOR_STATE_PASSPHRASE`: **different**, random passphrase (at least 4 characters) for encrypting your simulator state. Save a personal copy. Changing or losing it makes previous snapshots unreadable.
 
 Prefer a **private repository**. Your fork is currently public, and screenshots/diagnostics are not encrypted. This new workflow never uploads a credential artifact; existing older workflows may upload plaintext remote credentials and are unsafe to use in a public fork.
 
