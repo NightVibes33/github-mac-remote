@@ -92,6 +92,27 @@ jobs:
           chmod +x scripts/system-info.sh
           ./scripts/system-info.sh
 
+      - name: Initialize graphical console
+        run: |
+          echo "Checking the hosted macOS graphical console..."
+          echo "Console user: $(stat -f '%Su' /dev/console)"
+          echo "Active GUI sessions:"
+          who || true
+          system_profiler SPDisplaysDataType | head -80 || true
+          # Keep the display awake and ask the existing GUI session to show Finder.
+          caffeinate -dimsu >/tmp/vnc-caffeinate.log 2>&1 &
+          echo $! > /tmp/vnc-caffeinate.pid
+          CONSOLE_USER=$(stat -f '%Su' /dev/console)
+          if [ "$CONSOLE_USER" != "root" ] && [ "$CONSOLE_USER" != "loginwindow" ]; then
+            CONSOLE_UID=$(id -u "$CONSOLE_USER")
+            sudo launchctl asuser "$CONSOLE_UID" sudo -u "$CONSOLE_USER" open -a Finder || true
+          fi
+          mkdir -p diagnostics
+          screencapture -x diagnostics/console-before-vnc.png || true
+          if [ ! -s diagnostics/console-before-vnc.png ]; then
+            echo "::warning::No console screenshot; the hosted runner may not expose a graphical display."
+          fi
+
       - name: Enable macOS Screen Sharing (VNC)
         run: |
           echo "🖥️ Enabling macOS Screen Sharing (VNC)..."
@@ -134,6 +155,24 @@ jobs:
             echo "⚠️ NOTE: On macOS 14+, VNC may start in view-only mode without physical display."
             echo "   Consider using macOS 14 (standard) runner for full remote control."
           fi
+
+      - name: Capture VNC display diagnostics
+        if: always()
+        run: |
+          mkdir -p diagnostics
+          screencapture -x diagnostics/console-after-vnc.png || true
+          echo "Console user: $(stat -f '%Su' /dev/console)"
+          sudo lsof -nP -iTCP:5900 -sTCP:LISTEN || true
+          ls -lh diagnostics/ || true
+
+      - name: Upload display diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vnc-display-diagnostics-${{ github.run_id }}
+          path: diagnostics/
+          if-no-files-found: warn
+          retention-days: 1
 
       - name: Enable SSH remote login
         run: |
