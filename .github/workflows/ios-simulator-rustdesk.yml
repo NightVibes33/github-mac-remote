@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - ".github/ios-sim/launch.txt"
+      - ".github/workflows/ios-simulator-rustdesk.yml"
   workflow_dispatch:
     inputs:
       duration:
@@ -33,6 +34,7 @@ concurrency:
 jobs:
   remote-iphone:
     runs-on: xcode-27
+    environment: TAILSCALE_AUTH_KEY
     timeout-minutes: 355
     env:
       SIM_SESSION_HOURS: ${{ inputs.duration }}
@@ -128,6 +130,50 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
+      - name: Join Tailscale network for iPhone Simulator
+        shell: bash
+        env:
+          TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "$TAILSCALE_AUTH_KEY" ]; then
+            echo "::error::Missing TAILSCALE_AUTH_KEY environment secret"
+            exit 1
+          fi
+          brew install tailscale
+          sudo brew services start tailscale || {
+            sudo "$(brew --prefix)/opt/tailscale/bin/tailscaled" >/tmp/ios27-tailscaled.log 2>&1 &
+            sleep 5
+          }
+          sudo tailscale up --authkey="$TAILSCALE_AUTH_KEY" --hostname="ios27-simulator-${{ github.run_id }}"
+          TAILSCALE_IP=$(tailscale ip -4)
+          test -n "$TAILSCALE_IP"
+          echo "TAILSCALE_IP=$TAILSCALE_IP" >> "$GITHUB_ENV"
+          printf '### Remote iPhone Simulator\\nTailscale IP: %s\\n' "$TAILSCALE_IP" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Enable VNC access to Simulator host
+        shell: bash
+        run: |
+          set -euo pipefail
+          KICKSTART="/System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart"
+          VNC_PASSWORD=$(openssl rand -hex 4)
+          echo "::add-mask::$VNC_PASSWORD"
+          sudo "$KICKSTART" -activate -configure -access -on -allowAccessFor -allUsers -privs -all -clientopts -setvnclegacy -vnclegacy yes -clientopts -setvncpw -vncpw "$VNC_PASSWORD" -restart -agent -menu
+          mkdir -p "$RUNNER_TEMP/ios27-connection"
+          printf 'Tailscale IP: %s\\nVNC port: 5900\\nVNC password: %s\\nTarget: iOS 27 Simulator window on macOS host\\n' "$TAILSCALE_IP" "$VNC_PASSWORD" > "$RUNNER_TEMP/ios27-connection/connection.txt"
+          if ! sudo lsof -nP -iTCP:5900 -sTCP:LISTEN | grep -q LISTEN; then
+            echo "::error::VNC port 5900 is not listening"
+            exit 1
+          fi
+          echo "::warning::VNC shares host display; a headless macOS desktop may be black even though the simulator boots"
+
+      - name: Upload iPhone Simulator VNC credentials
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios27-vnc-credentials-${{ github.run_id }}
+          path: ${{ runner.temp }}/ios27-connection/connection.txt
+          retention-days: 1
+
       - name: Set up RustDesk
         if: steps.config.outputs.rustdesk == 'true'
         shell: bash
@@ -154,7 +200,7 @@ jobs:
           fi
 
       - name: Remote session with automatic snapshots
-        if: steps.config.outputs.rustdesk == 'true' && steps.config.outputs.state == 'true'
+        if: steps.booted.outputs.ready == 'true'
         shell: bash
         env:
           SIMULATOR_STATE_PASSPHRASE: ${{ secrets.SIMULATOR_STATE_PASSPHRASE }}
