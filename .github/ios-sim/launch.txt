@@ -1,3 +1,2 @@
-Launch: 2026-10-14 third attempt.
-Fix: resolve Simulator.app using explicit Xcode 27 Developer/Applications path, verify simctl screenshot.
-RustDesk and encrypted backup remain disabled if repo secrets are absent.
+Launch request: 2026-10-14 after repository secrets configured.
+Purpose: run iOS 27 Simulator, RustDesk, encrypted state and screenshot proof.
