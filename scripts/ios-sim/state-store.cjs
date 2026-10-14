@@ -10,7 +10,7 @@ const udid=get("ios-simulator.udid"),runtime=get("ios-simulator.runtime"),type=g
 const data=path.join(os.homedir(),"Library/Developer/CoreSimulator/Devices",udid,"data");
 const tweaks=path.join(os.homedir(),".remote-ios-simulator/tweaks");
 function exec(cmd,...args){const v=cp.spawnSync(cmd,args,{stdio:"inherit"});if(v.status!==0)throw Error(cmd+" failed (exit "+v.status+")");}
-function requireSecret(){if(!secret||secret.length<16)throw Error("SIMULATOR_STATE_PASSPHRASE must be 16+ characters");}
+function requireSecret(){if(!secret||secret.length<4)throw Error("SIMULATOR_STATE_PASSPHRASE must be 4+ characters");}
 async function encrypt(src,dest){
  const salt=crypto.randomBytes(16),nonce=crypto.randomBytes(12);
  const cipher=crypto.createCipheriv("aes-256-gcm",crypto.scryptSync(secret,salt,32),nonce);
