@@ -1,0 +1,3 @@
+Launch requested for iOS 27 Simulator over RustDesk.
+Trigger: 2026-10-14, interactive session.
+Purpose: test remote iPhone Simulator startup, RustDesk connection and checkpoint recovery.
