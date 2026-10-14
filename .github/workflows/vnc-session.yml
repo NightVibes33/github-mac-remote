@@ -131,6 +131,22 @@ jobs:
             echo "   Consider using macOS 14 (standard) runner for full remote control."
           fi
 
+      - name: Enable SSH remote login
+        run: |
+          echo "Enabling SSH for the temporary macOS runner..."
+          sudo systemsetup -setremotelogin on || true
+          sudo launchctl enable system/com.openssh.sshd || true
+          sudo launchctl kickstart -k system/com.openssh.sshd || true
+          for attempt in 1 2 3 4 5; do
+            if sudo lsof -nP -iTCP:22 -sTCP:LISTEN | grep -q LISTEN; then
+              echo "SSH is listening on port 22"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::SSH port 22 is not listening"
+          exit 1
+
       - name: Install Tailscale
         run: |
           echo "🔗 Installing Tailscale..."
@@ -224,7 +240,7 @@ CREDENTIALS
           cat >> credentials/connection-info.txt << EOF
 
   Tailscale IP:  ${TAILSCALE_IP}
-  VNC Port:      5900
+  VNC Port:      5900\n  SSH Port:      22
   Username:      ${VNC_USER}
   Password:      ${VNC_PASSWORD}
 
@@ -239,7 +255,7 @@ CREDENTIALS
      - Linux: Use Remmina or vncviewer
        ${TAILSCALE_IP}:5900
 
-  Login with Username and Password above
+  SSH (same Tailscale network): ssh ${VNC_USER}@${TAILSCALE_IP}\n  Login with Username and Password above
 
 ╚══════════════════════════════════════════════════════╝
 EOF
