@@ -1,6 +1,9 @@
 name: 'macOS VNC Session (Tailscale)'
 
 on:
+  push:
+    paths:
+      - '.github/workflows/vnc-session.yml'
   workflow_dispatch:
     inputs:
       duration:
@@ -36,12 +39,12 @@ on:
           - 'intel'
 
 env:
-  SESSION_DURATION: ${{ github.event.inputs.duration }}
+  SESSION_DURATION: ${{ github.event.inputs.duration || '2' }}
 
 jobs:
   mac-vnc-session:
     name: 'macOS VNC via Tailscale'
-    runs-on: ${{ github.event.inputs.runner_size == 'xlarge' && format('macos-{0}-xlarge', github.event.inputs.macos_version) || github.event.inputs.runner_size == 'large' && format('macos-{0}-large', github.event.inputs.macos_version) || github.event.inputs.runner_size == 'intel' && github.event.inputs.macos_version == '26' && 'macos-26-intel' || format('macos-{0}', github.event.inputs.macos_version) }}
+    runs-on: ${{ (github.event.inputs.runner_size || 'standard') == 'xlarge' && format('macos-{0}-xlarge', (github.event.inputs.macos_version || '15')) || (github.event.inputs.runner_size || 'standard') == 'large' && format('macos-{0}-large', (github.event.inputs.macos_version || '15')) || (github.event.inputs.runner_size || 'standard') == 'intel' && (github.event.inputs.macos_version || '15') == '26' && 'macos-26-intel' || format('macos-{0}', (github.event.inputs.macos_version || '15')) }}
     timeout-minutes: 370
 
     steps:
