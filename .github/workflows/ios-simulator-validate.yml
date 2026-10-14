@@ -1,0 +1,29 @@
+name: Validate Remote iOS Simulator
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/ios-simulator-*"
+      - "scripts/ios-sim/**"
+      - "scripts/setup-rustdesk.sh"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Shell script syntax
+        run: |
+          set -euo pipefail
+          for file in scripts/ios-sim/*.sh scripts/setup-rustdesk.sh; do
+            bash -n "$file"
+            echo "OK $file"
+          done
+      - name: Node.js script syntax
+        run: |
+          node --check scripts/ios-sim/state-store.cjs
+          echo "OK scripts/ios-sim/state-store.cjs"
