@@ -5,6 +5,12 @@ set -euo pipefail
 STATUS="$RUNNER_TEMP/simject-status.txt"
 echo "simject: attempting installation" > "$STATUS"
 trap 'echo "simject: unavailable (setup failure)" > "$STATUS"' ERR
+# The Substitute installer currently invokes python3.9 directly; xcode-27
+# ships newer Python. Provide an isolated compatibility command, not a system edit.
+COMPAT="$RUNNER_TEMP/simject-compat"
+mkdir -p "$COMPAT"
+ln -sf "$(command -v python3)" "$COMPAT/python3.9"
+export PATH="$COMPAT:$PATH"
 ROOT="$RUNNER_TEMP/simject-source"
 git init "$ROOT"
 git -C "$ROOT" remote add origin https://github.com/akemin-dayo/simject.git
