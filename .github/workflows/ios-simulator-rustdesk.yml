@@ -168,7 +168,7 @@ jobs:
         run: |
           set -euo pipefail
           KICKSTART="/System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart"
-          VNC_PASSWORD="$(openssl rand -hex 4)"
+          VNC_PASSWORD="5800"
           echo "::add-mask::$VNC_PASSWORD"
           sudo "$KICKSTART" -activate -configure -access -on -allowAccessFor -allUsers -privs -all -clientopts -setvnclegacy -vnclegacy yes -clientopts -setvncpw -vncpw "$VNC_PASSWORD" -restart -agent -menu
           python3 -m pip install --user --break-system-packages vncdotool || python3 -m pip install --user vncdotool
@@ -183,7 +183,7 @@ jobs:
               client.disconnect()
           PY
           mkdir -p "$RUNNER_TEMP/ios27-connection"
-          printf 'Tailscale IP: %s\nVNC port: 5900\nVNC password: %s\nTarget: macOS host desktop (may be black)\n' "${TAILSCALE_IP:-unavailable}" "$VNC_PASSWORD" > "$RUNNER_TEMP/ios27-connection/connection.txt"
+          printf 'Tailscale IP: %s\nVNC port: 5900\nVNC password: %s\nRequested username: bobby (label only; legacy VNC authenticates by password)\nTarget: macOS host desktop (may be black)\n' "${TAILSCALE_IP:-unavailable}" "$VNC_PASSWORD" > "$RUNNER_TEMP/ios27-connection/connection.txt"
           echo "### Host VNC verified" >> "$GITHUB_STEP_SUMMARY"
           echo "Legacy VNC password authentication passed locally. This is the macOS desktop, not the direct iPhone framebuffer." >> "$GITHUB_STEP_SUMMARY"
 
@@ -220,7 +220,7 @@ jobs:
           test -n "$URL" || { cat "$RUNNER_TEMP/cloudflared.log"; exit 1; }
           echo "### Verified host VNC" >> "$GITHUB_STEP_SUMMARY"
           echo "Cloudflare noVNC: $URL/vnc.html" >> "$GITHUB_STEP_SUMMARY"
-          echo "Use the password from the VNC credentials artifact; no username is required in noVNC." >> "$GITHUB_STEP_SUMMARY"
+          echo "VNC password: 5800. Legacy VNC has no username field; bobby is a connection label only." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Set up RustDesk
         if: steps.config.outputs.rustdesk == 'true'
