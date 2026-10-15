@@ -152,6 +152,15 @@ jobs:
           echo "TAILSCALE_IP=$TAILSCALE_IP" >> "$GITHUB_ENV"
           printf '### Remote iPhone Simulator\\nTailscale IP: %s\\n' "$TAILSCALE_IP" >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Publish direct iPhone framebuffer preview
+        if: steps.booted.outputs.ready == 'true'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v cloudflared >/dev/null; then brew install cloudflared; fi
+          bash scripts/ios-sim/direct-screen.sh
+
       - name: Enable VNC access to Simulator host
         shell: bash
         run: |
