@@ -1,2 +1,3 @@
 Launch request: 2026-10-14 after repository secrets configured.
 Purpose: run iOS 27 Simulator, RustDesk, encrypted state and screenshot proof.
+Launch request: 2026-10-15 fresh iOS 27 Simulator session with Tailscale VNC and Cloudflare noVNC.
