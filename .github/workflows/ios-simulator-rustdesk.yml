@@ -170,6 +170,8 @@ jobs:
           KICKSTART="/System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart"
           VNC_PASSWORD="5800"
           echo "::add-mask::$VNC_PASSWORD"
+          mkdir -p "$RUNNER_TEMP/ios27-connection"
+          printf "Tailscale IP: %s\\nVNC port: 5900\\nVNC password: %s\\nUsername: bobby (display label only)\\n" "${TAILSCALE_IP:-unavailable}" "$VNC_PASSWORD" > "$RUNNER_TEMP/ios27-connection/connection.txt"
           sudo "$KICKSTART" -activate -configure -access -on -allowAccessFor -allUsers -privs -all -clientopts -setvnclegacy -vnclegacy yes -clientopts -setvncpw -vncpw "$VNC_PASSWORD" -restart -agent -menu
           python3 -m pip install --user --break-system-packages vncdotool || python3 -m pip install --user vncdotool
           VNC_PASSWORD="$VNC_PASSWORD" python3 - <<'PY'
