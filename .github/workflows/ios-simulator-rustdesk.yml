@@ -188,7 +188,7 @@ jobs:
           echo "Legacy VNC password authentication passed locally. This is the macOS desktop, not the direct iPhone framebuffer." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload verified VNC credentials
-        if: steps.vnc_auth.outcome == 'success'
+        if: always() && steps.booted.outputs.ready == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: ios27-vnc-credentials-${{ github.run_id }}
@@ -196,7 +196,7 @@ jobs:
           retention-days: 1
 
       - name: Publish Cloudflare browser VNC (verified host only)
-        if: steps.vnc_auth.outcome == 'success'
+        if: always() && steps.booted.outputs.ready == 'true'
         continue-on-error: true
         shell: bash
         run: |
