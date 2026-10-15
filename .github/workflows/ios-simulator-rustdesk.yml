@@ -161,65 +161,66 @@ jobs:
           if ! command -v cloudflared >/dev/null; then brew install cloudflared; fi
           bash scripts/ios-sim/direct-screen.sh
 
-      - name: Enable VNC access to Simulator host
+      - name: Validate legacy VNC authentication
+        id: vnc_auth
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
           KICKSTART="/System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart"
-          VNC_PASSWORD=$(openssl rand -hex 4)
+          VNC_PASSWORD="$(openssl rand -hex 4)"
           echo "::add-mask::$VNC_PASSWORD"
           sudo "$KICKSTART" -activate -configure -access -on -allowAccessFor -allUsers -privs -all -clientopts -setvnclegacy -vnclegacy yes -clientopts -setvncpw -vncpw "$VNC_PASSWORD" -restart -agent -menu
+          python3 -m pip install --user --break-system-packages vncdotool || python3 -m pip install --user vncdotool
+          VNC_PASSWORD="$VNC_PASSWORD" python3 - <<'PY'
+          import os, sys
+          from vncdotool import api
+          client = api.connect('127.0.0.1::5900', password=os.environ['VNC_PASSWORD'], timeout=15)
+          try:
+              client.refreshScreen()
+              print('VNC authentication succeeded; framebuffer size:', client.screen.size)
+          finally:
+              client.disconnect()
+          PY
           mkdir -p "$RUNNER_TEMP/ios27-connection"
-          printf 'Tailscale IP: %s\\nVNC port: 5900\\nVNC password: %s\\nTarget: iOS 27 Simulator window on macOS host\\n' "$TAILSCALE_IP" "$VNC_PASSWORD" > "$RUNNER_TEMP/ios27-connection/connection.txt"
-          if ! sudo lsof -nP -iTCP:5900 -sTCP:LISTEN | grep -q LISTEN; then
-            echo "::error::VNC port 5900 is not listening"
-            exit 1
-          fi
-          echo "::warning::VNC shares host display; a headless macOS desktop may be black even though the simulator boots"
+          printf 'Tailscale IP: %s\nVNC port: 5900\nVNC password: %s\nTarget: macOS host desktop (may be black)\n' "${TAILSCALE_IP:-unavailable}" "$VNC_PASSWORD" > "$RUNNER_TEMP/ios27-connection/connection.txt"
+          echo "### Host VNC verified" >> "$GITHUB_STEP_SUMMARY"
+          echo "Legacy VNC password authentication passed locally. This is the macOS desktop, not the direct iPhone framebuffer." >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Upload iPhone Simulator VNC credentials
+      - name: Upload verified VNC credentials
+        if: steps.vnc_auth.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: ios27-vnc-credentials-${{ github.run_id }}
           path: ${{ runner.temp }}/ios27-connection/connection.txt
           retention-days: 1
 
-      - name: Publish temporary Cloudflare browser VNC
-        if: steps.booted.outputs.ready == 'true'
+      - name: Publish Cloudflare browser VNC (verified host only)
+        if: steps.vnc_auth.outcome == 'success'
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
-          brew install cloudflared
+          if ! command -v cloudflared >/dev/null; then brew install cloudflared; fi
           git clone --depth 1 https://github.com/novnc/noVNC.git "$RUNNER_TEMP/novnc"
-          git clone --depth 1 https://github.com/novnc/websockify.git "$RUNNER_TEMP/websockify"
           python3 -m pip install --user --break-system-packages websockify || python3 -m pip install --user websockify
           python3 -m websockify --web "$RUNNER_TEMP/novnc" 127.0.0.1:6080 127.0.0.1:5900 > "$RUNNER_TEMP/websockify.log" 2>&1 &
-          echo $! > "$RUNNER_TEMP/websockify.pid"
-          READY=0
           for i in {1..20}; do
-            if curl -fsS http://127.0.0.1:6080/vnc.html -o /dev/null; then READY=1; break; fi
-            if ! kill -0 "$(cat "$RUNNER_TEMP/websockify.pid")" 2>/dev/null; then break; fi
+            if curl -fsS http://127.0.0.1:6080/vnc.html -o /dev/null 2>/dev/null; then break; fi
             sleep 2
           done
-          if [ "$READY" != 1 ]; then cat "$RUNNER_TEMP/websockify.log"; exit 1; fi
+          curl -fsS http://127.0.0.1:6080/vnc.html -o /dev/null
           cloudflared tunnel --no-autoupdate --url http://127.0.0.1:6080 > "$RUNNER_TEMP/cloudflared.log" 2>&1 &
-          echo $! > "$RUNNER_TEMP/cloudflared.pid"
           URL=""
           for i in {1..40}; do
-            URL=$(grep -Eo 'https://[a-zA-Z0-9-]+[.]trycloudflare[.]com' "$RUNNER_TEMP/cloudflared.log" | head -1 || true)
+            URL="$(grep -Eo 'https://[a-zA-Z0-9-]+[.]trycloudflare[.]com' "$RUNNER_TEMP/cloudflared.log" | head -1 || true)"
             test -n "$URL" && break
             sleep 3
           done
-          if [ -z "$URL" ]; then
-            cat "$RUNNER_TEMP/cloudflared.log"
-            echo "::error::Cloudflare tunnel did not return a URL"
-            exit 1
-          fi
-          echo "### Temporary browser VNC (iPhone Safari)" >> "$GITHUB_STEP_SUMMARY"
-          echo "URL: $URL/vnc.html" >> "$GITHUB_STEP_SUMMARY"
-          echo "This temporary URL stops working when the runner exits (maximum six hours)." >> "$GITHUB_STEP_SUMMARY"
-          echo "VNC password is in the ios27-vnc-credentials artifact." >> "$GITHUB_STEP_SUMMARY"
-          echo "Cloudflare URL: $URL/vnc.html"
+          test -n "$URL" || { cat "$RUNNER_TEMP/cloudflared.log"; exit 1; }
+          echo "### Verified host VNC" >> "$GITHUB_STEP_SUMMARY"
+          echo "Cloudflare noVNC: $URL/vnc.html" >> "$GITHUB_STEP_SUMMARY"
+          echo "Use the password from the VNC credentials artifact; no username is required in noVNC." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Set up RustDesk
         if: steps.config.outputs.rustdesk == 'true'
